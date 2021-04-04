@@ -17,7 +17,7 @@ import requests
 
 from .models import Track, Album, Artist, Media, MediaType, Client, UnavailableException
 
-LOCALE = locale.getlocale()[0]
+LOCALE = locale.getlocale()[0] or "en_US"
 
 # API_SCHEME_AND_DOMAIN = "https://api.tidalhifi.com"
 API_ENDPOINT = "https://api.tidalhifi.com/v1"
@@ -44,9 +44,9 @@ class TidalClient(Client):
         self._username = config["username"] or input("Tidal username: ")
         self._password = config["password"] or getpass.getpass("Tidal password: ")
 
-    def authenticate(self):
+    def authenticate(self, session_params = None):
         self._session, self._country_code = TidalClient._get_session(
-            self._username, self._password, API_TOKEN
+            self._username, self._password, API_TOKEN, session_params
         )
         # self._master_session, _ = TidalClient._get_session(
         #     self._username, self._password, MASTER_API_TOKEN
@@ -91,7 +91,7 @@ class TidalClient(Client):
 
     @staticmethod
     def _get_session(
-        username: str, password: str, token: str
+        username: str, password: str, token: str, session_params: dict
     ) -> Tuple[requests.Session, str]:
         session = requests.Session()
         session.headers["User-Agent"] = USER_AGENT
@@ -100,22 +100,29 @@ class TidalClient(Client):
             random.choice(ascii_lowercase) for _ in range(CLIENT_UNIQUE_KEY_LENGTH)
         )
 
-        request = session.post(
-            f"{API_ENDPOINT}/login/username",
-            data=TidalClient._prepare_params(
-                {
-                    "username": username,
-                    "password": password,
-                    "token": token,
-                    "clientUniqueKey": client_unique_key,
-                    "clientVersion": CLIENT_VERSION,
-                }
-            ),
-        )
-        request.raise_for_status()
-        body = request.json()
-        session.headers["x-tidal-sessionid"] = body["sessionId"]
-        country_code = body["countryCode"]
+        if session_params is not None:
+            session.headers["x-tidal-sessionid"] = session_params["session_id"]
+            country_code = session_params["country_code"]
+        else:
+            from .mania import save_session_params
+            request = session.post(
+                f"{API_ENDPOINT}/login/username",
+                data=TidalClient._prepare_params(
+                    {
+                        "username": username,
+                        "password": password,
+                        "token": token,
+                        "clientUniqueKey": client_unique_key,
+                        "clientVersion": CLIENT_VERSION,
+                    }
+                ),
+            )
+            request.raise_for_status()
+            body = request.json()
+            session.headers["x-tidal-sessionid"] = body["sessionId"]
+            country_code = body["countryCode"]
+
+            save_session_params({ "session_id": body["sessionId"], "country_code": country_code })
 
         return session, country_code
 

@@ -358,6 +358,24 @@ def load_config(args: dict) -> dict:
     config["config-path"] = config_path
     return config
 
+def load_session_params() -> dict:
+    session_path = constants.SESSION_PATH
+    
+    if not os.path.isfile(session_path):
+        return None
+
+    session_toml = toml.load(session_path)
+
+    return {
+        "session_id": session_toml.get("session_id"),
+        "country_code": session_toml.get("country_code")
+    }
+
+def save_session_params(params: dict) -> None:
+    session_path = constants.SESSION_PATH
+
+    with open(session_path, "w") as session_file:
+        session_file.write(toml.dumps(params))
 
 def run() -> None:
     parser = argparse.ArgumentParser()
@@ -396,9 +414,15 @@ def run() -> None:
     
     log(config, "Warning: MQA support is currently broken. Files requested as `master` quality will download as `lossless`.")
 
-    log(config, "Authenticating...")
     try:
-        client.authenticate()
+        session_params = load_session_params()
+
+        if session_params is None:
+            log(config, "Authenticating...")
+        else:
+            log(config, "Using cached session...")
+
+        client.authenticate(session_params)
     except requests.exceptions.HTTPError as error:
         if error.response.status_code in (400, 401):
             data = error.response.json()
@@ -415,6 +439,7 @@ def main() -> None:
     try:
         run()
     except requests.exceptions.HTTPError as error:
+        print(error)
         print(f"Uncaught HTTP Error:\n{error.response.content}", file=sys.stderr)
         sys.exit(1)
     except ManiaException as exception:

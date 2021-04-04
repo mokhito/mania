@@ -5,3 +5,4 @@ dist
 *.swp
 *.mp3
 .mypy_cache
+.venv/

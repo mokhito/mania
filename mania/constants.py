@@ -3,6 +3,7 @@ import os
 import toml
 
 CONFIG_PATH = os.path.expanduser("~/.config/mania/config.toml")
+SESSION_PATH = os.path.expanduser("~/.config/mania/session.toml")
 INDENT = "  "
 TEMPORARY_EXTENSION = "part"
 DOWNLOAD_CHUNK_SIZE = 1024
